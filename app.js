@@ -56,7 +56,8 @@ apiRouter.get('/accounts', expressify(getAccounts, getHandler));
 apiRouter.post('/accounts', expressify(newAccount, postHandler));
 apiRouter.get('/accounts/:account', expressify(accountStatus, getHandler));
 // accounts in the RealDigital contract
-apiRouter.post('/accounts/:account/authorize', expressify(authorizeAccount, postHandler));
+apiRouter.post('/accounts/:account/authorize/erc20', expressify(authorizeAccountERC20, postHandler));
+apiRouter.post('/accounts/:account/authorize/erc1155', expressify(authorizeAccountERC1155, postHandler));
 apiRouter.post('/accounts/:account/revoke', expressify(revokeAccount, postHandler));
 // account balance in the RealDigital or ZSC contract
 apiRouter.get('/accounts/:account/balance', expressify(getBalance, getHandler));
@@ -64,7 +65,8 @@ apiRouter.get('/accounts/:account/balance', expressify(getBalance, getHandler));
 apiRouter.get('/shieldedAccounts', expressify(getShieldedAccounts, getHandler));
 apiRouter.post('/accounts/:account/register', expressify(registerShieldedAccount, postHandler));
 // operations with the RealDigital contract
-apiRouter.post('/mint', expressify(mint, postHandler));
+apiRouter.post('/mint/erc20', expressify(mintERC20, postHandler));
+apiRouter.post('/mint/erc1155', expressify(mintERC1155, postHandler));
 apiRouter.post('/burn', expressify(burn, postHandler));
 apiRouter.post('/move', expressify(move, postHandler));
 apiRouter.post('/moveAndBurn', expressify(moveAndBurn, postHandler));
@@ -102,14 +104,27 @@ async function newAccount() {
 
 async function authorizeAccount(req) {
   const ethAddress = req.params.account;
+  const { isERC20 } = req.body;
+  
   if (!isEthereumAddress(ethAddress)) {
     throw new HttpError('Address does not appear to be a valid Ethereum address', 400);
   }
-  const txHash = await tradeManager.cashTokenClient.enableAccount(ethAddress);
+  
+  const txHash = await tradeManager.cashTokenClient.enableAccount(ethAddress, isERC20);
   return {
     success: true,
     transactionHash: txHash,
   };
+}
+
+async function authorizeAccountERC20(req) {
+  const ethAddress = req.params.account;
+  return await authorizeAccount({ params: { account: ethAddress }, body: { ...req.body, isERC20: true } })
+}
+
+async function authorizeAccountERC1155(req) {
+  const ethAddress = req.params.account;
+  return await authorizeAccount({ params: { account: ethAddress }, body: { ...req.body, isERC20: false } });
 }
 
 async function registerShieldedAccount(req) {
@@ -179,18 +194,26 @@ async function getBalance(req) {
 }
 
 async function mint(req) {
-  const { ethAddress, amount } = req.body;
+  const { ethAddress, amount, isERC20 } = req.body;
   if (!ethAddress) {
     throw new HttpError('Must provide "ethAddress" for the account to mint tokens to', 400);
   }
   if (!amount) {
     throw new HttpError('Must provide "amount" for the minting amount', 400);
   }
-  const txHash = await tradeManager.cashTokenClient.mint(ethAddress, amount);
+  const txHash = await tradeManager.cashTokenClient.mint(ethAddress, amount, isERC20);
   return {
     success: true,
     transactionHash: txHash,
   };
+}
+
+async function mintERC20(req) {
+  return await mint({ body: { ...req.body, isERC20: true } });
+}
+
+async function mintERC1155(req) {
+  return await mint({ body: { ...req.body, isERC20: false } });
 }
 
 async function burn(req) {
@@ -357,6 +380,7 @@ async function startDvP(req) {
   if (!zsc) {
     throw new HttpError('Must provide "zsc" for the ZSC contract to without from', 400);
   }
+  
   const { txHash, txSubmitter, proof } = await dvpManager.startDvP(shieldedSenderAddress, shieldedReceiverAddress, amount, signer, zsc);
   return {
     success: true,
@@ -407,6 +431,7 @@ function printConfig() {
   logger.info(`\tepoch length: ${Config.getEpochLength()} seconds`);
 }
 
+
 const serverPromise = tradeManager
   .init()
   .then(async () => {
@@ -425,3 +450,4 @@ module.exports = {
   tradeManager,
   dvpManager,
 };
+

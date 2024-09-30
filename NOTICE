@@ -1,0 +1,10 @@
+This project was originally developed by Kaleido in 2023 and then modified by Daniel Almendra in 2024.
+
+The main feature implemented in this fork is the possibility to execute DvP Transactions to exchange an ERC-20 for an ERC-1155 token (or vice-versa) using Anonymous Zether.
+
+Key modifications:
+- Modified main script (app.js):
+	- Now, ERC-1155 tokens are supported in the authorize and mint functions.
+- Modified lib/trade-manager/cash-token.js to add ERC-1155 token support
+- New ABIs for the token and Anonymous Zether smart contracts: the lib/abi directory now includes the actual JSON files referring to the complete ABIs for the token and Anonymous Zether smart contracts.
+- To support the above change, the script lib/base.js had to be adjusted to fetch the whole ABI and filter the ABI section within it.
